@@ -32,7 +32,12 @@ from experiment_ledger.services.users import UserService
 app = typer.Typer(help="experiment-ledger admin CLI", no_args_is_help=True)
 console = Console()
 
-_ROOT = Path(__file__).resolve().parents[2]
+def _project_root() -> Path:
+    """alembic.ini lives next to the source in a checkout, or in the working dir in Docker."""
+    for candidate in (Path.cwd(), Path(__file__).resolve().parents[2]):
+        if (candidate / "alembic.ini").is_file():
+            return candidate
+    raise typer.BadParameter("alembic.ini not found; run from the project directory")
 
 # Fictional demo scenarios: (key, name, metric, baseline, mde, true_lift, srm_skew)
 DEMO_EXPERIMENTS = [
@@ -77,8 +82,9 @@ def _session() -> Iterator[Session]:
 
 
 def _alembic_config() -> Config:
-    cfg = Config(str(_ROOT / "alembic.ini"))
-    cfg.set_main_option("script_location", str(_ROOT / "alembic"))
+    root = _project_root()
+    cfg = Config(str(root / "alembic.ini"))
+    cfg.set_main_option("script_location", str(root / "alembic"))
     cfg.set_main_option("sqlalchemy.url", get_settings().database_url)
     return cfg
 
