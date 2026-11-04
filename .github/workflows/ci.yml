@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_FROZEN: "1"
+
+jobs:
+  test:
+    name: Lint, type-check, test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb # v6.1.0
+        with:
+          python-version: "3.13"
+      - run: uv sync
+      - name: Ruff lint
+        run: uv run ruff check .
+      - name: Ruff format check
+        run: uv run ruff format --check .
+      - name: Mypy (strict)
+        run: uv run mypy
+      - name: Tests with coverage
+        run: uv run pytest --cov --cov-report=term --cov-fail-under=90
+      - name: Smoke test (migrate, seed, serve, health check)
+        run: |
+          export JWT_SECRET="$(openssl rand -hex 32)"
+          export DATABASE_URL="sqlite:///$RUNNER_TEMP/smoke.db"
+          uv run experiment-ledger migrate
+          uv run experiment-ledger seed > /dev/null
+          uv run uvicorn --factory experiment_ledger.main:app_factory --port 8000 &
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:8000/health && exit 0; sleep 1; done
+          exit 1
+
+  security:
+    name: Secret scan, dependency audit, SAST
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: "8.21.2"
+      GITLEAKS_SHA256: "5bc41815076e6ed6ef8fbecc9d9b75bcae31f39029ceb55da08086315316e3ba"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0 # full history so every commit is scanned
+          persist-credentials: false
+      - name: Gitleaks (full history)
+        run: |
+          curl -sSfL -o gitleaks.tgz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
+          tar -xzf gitleaks.tgz gitleaks
+          ./gitleaks detect --source . --log-opts="--all" --redact --no-banner -v
+      - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb # v6.1.0
+        with:
+          python-version: "3.13"
+      - run: uv sync
+      - name: pip-audit (dependency vulnerabilities)
+        run: |
+          uv export --no-dev --no-hashes --no-emit-project --format requirements-txt > requirements-audit.txt
+          uv run pip-audit --strict -r requirements-audit.txt
+      - name: Bandit (static security analysis)
+        run: uv run bandit -q -r src
