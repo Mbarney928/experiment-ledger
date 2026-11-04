@@ -75,6 +75,11 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
+filterwarnings = [
+    "error::ResourceWarning",
+    # Upstream notice from Starlette's TestClient; unrelated to this project's code.
+    "ignore:Using `httpx` with `starlette.testclient`",
+]
 
 [tool.coverage.run]
 source = ["experiment_ledger"]

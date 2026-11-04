@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 import secrets
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated
 
@@ -17,6 +19,7 @@ from alembic import command
 from alembic.config import Config
 from rich.console import Console
 from rich.table import Table
+from sqlalchemy.orm import Session
 
 from experiment_ledger import schemas
 from experiment_ledger.config import get_settings
@@ -64,6 +67,15 @@ DEMO_EXPERIMENTS = [
 ]
 
 
+@contextmanager
+def _session() -> Iterator[Session]:
+    engine = make_engine(get_settings().database_url)
+    try:
+        yield from session_scope(make_session_factory(engine))
+    finally:
+        engine.dispose()
+
+
 def _alembic_config() -> Config:
     cfg = Config(str(_ROOT / "alembic.ini"))
     cfg.set_main_option("script_location", str(_ROOT / "alembic"))
@@ -85,8 +97,7 @@ def create_user(
 ) -> None:
     """Create a user with a freshly generated random password (shown once, here)."""
     password = secrets.token_urlsafe(18)
-    factory = make_session_factory(make_engine(get_settings().database_url))
-    for session in session_scope(factory):
+    with _session() as session:
         UserService(session).create(schemas.UserCreate(email=email, password=password, role=role))
     console.print(f"Created [bold]{email}[/bold] ({role}).")
     console.print(f"Password (shown once): {password}", soft_wrap=True, highlight=False)
@@ -96,9 +107,8 @@ def create_user(
 def seed(seed: Annotated[int, typer.Option(help="RNG seed for reproducible data")] = 7) -> None:
     """Load fictional demo users and experiments (example.com addresses only)."""
     rng = np.random.default_rng(seed)
-    factory = make_session_factory(make_engine(get_settings().database_url))
     creds: list[tuple[str, str, Role]] = []
-    for session in session_scope(factory):
+    with _session() as session:
         users = UserService(session)
         accounts = {}
         for email, role in [
