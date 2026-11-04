@@ -1,0 +1,51 @@
+# --- Secrets & credentials (never commit) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+secrets/
+credentials*.json
+.npmrc
+.pypirc
+
+# --- Local databases & dumps ---
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+build/
+dist/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# --- Coverage & reports ---
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.sarif
+
+# --- Logs ---
+*.log
+logs/
+
+# --- IDE / OS ---
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
