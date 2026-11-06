@@ -168,6 +168,6 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 4. Webhook / Slack notification when an experiment crosses a boundary or trips the SRM guard
 5. Event ingestion endpoint so snapshots are computed from raw exposure/conversion events
 
-## About
+## License
 
-Built with AI assistance (Claude) as part of a daily portfolio series; design, review and publication by [@Mbarney928](https://github.com/Mbarney928). Licensed under [MIT](LICENSE).
+Released under the [MIT License](LICENSE).
