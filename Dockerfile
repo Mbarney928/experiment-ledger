@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ---- build stage: resolve and install locked dependencies into a venv ----
-FROM python:3.13-slim AS build
+FROM python:3.15-slim AS build
 COPY --from=ghcr.io/astral-sh/uv:0.11 /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_FROZEN=1 UV_PYTHON_DOWNLOADS=never
 WORKDIR /app
@@ -10,7 +10,7 @@ COPY src ./src
 RUN uv sync --no-dev --extra postgres --no-editable
 
 # ---- runtime stage: no build tools, non-root user, no secrets baked in ----
-FROM python:3.13-slim AS runtime
+FROM python:3.15-slim AS runtime
 RUN groupadd --system app && useradd --system --gid app --home /app --shell /usr/sbin/nologin app
 WORKDIR /app
 COPY --from=build --chown=app:app /app/.venv /app/.venv
